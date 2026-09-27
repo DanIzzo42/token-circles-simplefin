@@ -4,6 +4,7 @@
   "description": "Token Circles with SimpleFin integration for multi-user finance dashboard",
   "main": "index.js",
   "scripts": {
+    "start": "vite build && vite preview",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

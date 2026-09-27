@@ -43,6 +43,39 @@ Rules match case-insensitively on the transaction description; the first matchin
 
 SimpleFIN Bridge asks apps to make no more than about 24 requests a day. The app caches the last sync in your browser and only fetches again on page load if that sync is more than 6 hours old. **Refresh** always fetches. It loads the last 60 days of transactions.
 
+## Running it at home for the whole household
+
+One computer (say, your Mac) runs the app; anyone else in the house opens it in a browser. The other laptops don't need Node, the code, or anything installed.
+
+**On the computer that hosts it** (one-time: install Node.js and get the code; see [Development](#development)):
+
+```bash
+cd token-circles-simplefin
+npm start
+```
+
+This builds the app and serves it on port 3000 to your home network. Leave the Terminal window open; closing it or pressing Ctrl+C stops the app. The first time, macOS may ask whether `node` can accept incoming connections: click **Allow**.
+
+**Find the address to share.** Use the computer's network name, not its IP address:
+
+```bash
+scutil --get LocalHostName      # e.g. Dans-MacBook-Pro
+```
+
+Everyone else opens **`http://Dans-MacBook-Pro.local:3000`** (your name plus `.local:3000`). The name matters because a browser keeps each site's saved data under the exact address. Your router can hand the Mac a new IP address, and anyone who bookmarked the IP would then land on a "new" site with their connection, budgets, and rules gone. The `.local` name stays the same.
+
+**Keep it available.** The app only works while the host computer is awake and `npm start` is running. To stop the Mac from idling to sleep while it serves the app, start it with:
+
+```bash
+caffeinate -i npm start
+```
+
+A laptop with its lid closed still sleeps.
+
+**Each person connects with their own setup token** (see [Two people, same accounts](#two-people-same-accounts)). Budgets and rules are saved in each person's own browser.
+
+**Keep it inside your home network.** Don't set up port forwarding to expose it to the internet. Over your home Wi-Fi only the app's own files travel as plain `http`; bank data goes straight from each browser to SimpleFIN over HTTPS.
+
 ## Where your data lives
 
 Everything is stored in your browser's `localStorage`:
@@ -70,7 +103,8 @@ npm run dev        # http://localhost:3000
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Start the dev server |
+| `npm start` | Build and serve the app on your home network (port 3000) |
+| `npm run dev` | Start the dev server with live reload (also reachable on your network) |
 | `npm test` | Run the unit tests once (`npm run test:watch` to watch) |
 | `npm run typecheck` | Type-check with `tsc` |
 | `npm run lint` | Lint with ESLint (`npm run lint:fix` to auto-fix) |
