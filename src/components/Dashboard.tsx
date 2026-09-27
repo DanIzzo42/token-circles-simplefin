@@ -1,7 +1,10 @@
-import { Component, For } from 'solid-js';
+import { Component, For, Show } from 'solid-js';
 import { FinancialData } from '../types';
+import { budgetService, UNCATEGORIZED } from '../services/budgets';
+import { CategorizeTransaction } from './CategorizeTransaction';
+import { BudgetManager } from './BudgetManager';
 
-export const Dashboard: Component<{ data: FinancialData }> = (props) => {
+export const Dashboard: Component<{ data: FinancialData; onChange: () => void }> = (props) => {
   const totalBalance = () => props.data.accounts.reduce((sum, account) => sum + account.balance, 0);
   const monthlyIncome = () =>
     props.data.transactions
@@ -58,6 +61,9 @@ export const Dashboard: Component<{ data: FinancialData }> = (props) => {
         </div>
       </div>
 
+      {/* Budgets */}
+      <BudgetManager budgets={props.data.budgets} onChange={props.onChange} />
+
       {/* Recent Transactions */}
       <div class="transactions-section">
         <h2>Recent Transactions</h2>
@@ -65,13 +71,22 @@ export const Dashboard: Component<{ data: FinancialData }> = (props) => {
           <For each={props.data.transactions.slice(0, 10)}>
             {(transaction) => (
               <div class="transaction">
-                <div class="transaction-info">
-                  <span class="description">{transaction.description}</span>
-                  <span class="category">{transaction.category}</span>
+                <div class="transaction-row">
+                  <div class="transaction-info">
+                    <span class="description">{transaction.description}</span>
+                    <span class="category">{transaction.category}</span>
+                  </div>
+                  <span class={`amount ${transaction.type}`}>
+                    {transaction.type === 'income' ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
+                  </span>
                 </div>
-                <span class={`amount ${transaction.type}`}>
-                  {transaction.type === 'income' ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
-                </span>
+                <Show when={transaction.category === UNCATEGORIZED}>
+                  <CategorizeTransaction
+                    transaction={transaction}
+                    categories={budgetService.getCategories()}
+                    onSaved={props.onChange}
+                  />
+                </Show>
               </div>
             )}
           </For>

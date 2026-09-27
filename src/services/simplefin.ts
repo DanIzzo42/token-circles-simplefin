@@ -6,7 +6,6 @@ interface SimpleFinTransaction {
   transacted_at?: number;
   amount: string;
   description: string;
-  extra?: { category?: string };
 }
 
 interface SimpleFinAccount {
@@ -115,7 +114,9 @@ export class SimpleFinService {
             date: new Date(postedSeconds * 1000),
             description: transaction.description,
             amount,
-            category: transaction.extra?.category || 'Uncategorized',
+            // SimpleFin has no category field; the app's categorization
+            // rules (see services/budgets.ts) assign the real category.
+            category: 'Uncategorized',
             type: (amount >= 0 ? 'income' : 'expense') as 'income' | 'expense'
           };
         })

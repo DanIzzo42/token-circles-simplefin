@@ -16,13 +16,22 @@ export interface Transaction {
   type: 'income' | 'expense';
 }
 
-export interface Budget {
+export interface BudgetConfig {
   id: string;
   name: string;
   category: string;
   amount: number;
-  spent: number;
   period: 'monthly' | 'weekly';
+}
+
+export interface Budget extends BudgetConfig {
+  spent: number;
+}
+
+export interface CategoryRule {
+  id: string;
+  keyword: string;
+  category: string;
 }
 
 export interface SimpleFinCredentials {

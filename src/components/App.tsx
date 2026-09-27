@@ -2,6 +2,7 @@ import { createSignal, onMount, Component } from 'solid-js';
 import { ConnectForm } from './ConnectForm';
 import { Dashboard } from './Dashboard';
 import { simpleFinService } from '../services/simplefin';
+import { budgetService, computeBudgetProgress } from '../services/budgets';
 import { FinancialData } from '../types';
 
 export const App: Component = () => {
@@ -10,6 +11,12 @@ export const App: Component = () => {
   const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal('');
 
+  const applyCategorization = (data: FinancialData): FinancialData => {
+    const transactions = budgetService.categorizeAll(data.transactions);
+    const budgets = computeBudgetProgress(budgetService.getBudgets(), transactions);
+    return { ...data, transactions, budgets };
+  };
+
   const handleRefreshData = async () => {
     if (!simpleFinService.isConnected()) return;
 
@@ -17,7 +24,7 @@ export const App: Component = () => {
     setError('');
     try {
       const data = await simpleFinService.getFinancialData();
-      setFinancialData(data);
+      setFinancialData(applyCategorization(data));
     } catch (err) {
       console.error('Error refreshing data:', err);
       setError(err instanceof Error ? err.message : 'Failed to refresh data');
@@ -26,6 +33,13 @@ export const App: Component = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Re-runs categorization/budget math over already-fetched transactions,
+  // without a network round-trip. Used after a rule or budget is added/removed.
+  const handleRecategorize = () => {
+    const current = financialData();
+    if (current) setFinancialData(applyCategorization(current));
   };
 
   const handleConnected = () => {
@@ -66,7 +80,10 @@ export const App: Component = () => {
         {!isConnected() ? (
           <ConnectForm onConnected={handleConnected} />
         ) : (
-          <Dashboard data={financialData() || { accounts: [], transactions: [], budgets: [] }} />
+          <Dashboard
+            data={financialData() || { accounts: [], transactions: [], budgets: [] }}
+            onChange={handleRecategorize}
+          />
         )}
       </main>
     </div>
