@@ -1,0 +1,92 @@
+import { createSignal, Component } from 'solid-js';
+import { FinancialData } from '../types';
+
+export const Dashboard: Component<{ data: FinancialData }> = (props) => {
+  const { data } = props;
+
+  // Calculate totals
+  const totalBalance = data.accounts.reduce((sum, account) => sum + account.balance, 0);
+  const monthlyIncome = data.transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const monthlyExpenses = data.transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+  // Category breakdown
+  const categoryTotals = data.transactions.reduce((acc, transaction) => {
+    if (transaction.type === 'expense') {
+      acc[transaction.category] = (acc[transaction.category] || 0) + Math.abs(transaction.amount);
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  return (
+    <div class="dashboard">
+      <h1>Financial Dashboard</h1>
+
+      {/* Summary Cards */}
+      <div class="summary-cards">
+        <div class="card">
+          <h3>Total Balance</h3>
+          <p class="balance">${totalBalance.toFixed(2)}</p>
+        </div>
+
+        <div class="card">
+          <h3>Monthly Income</h3>
+          <p class="income">+${monthlyIncome.toFixed(2)}</p>
+        </div>
+
+        <div class="card">
+          <h3>Monthly Expenses</h3>
+          <p class="expense">-${monthlyExpenses.toFixed(2)}</p>
+        </div>
+      </div>
+
+      {/* Accounts */}
+      <div class="accounts-section">
+        <h2>Accounts</h2>
+        <div class="accounts">
+          {data.accounts.map(account => (
+            <div class="account-card">
+              <h3>{account.name}</h3>
+              <p class="institution">{account.institution}</p>
+              <p class="balance">${account.balance.toFixed(2)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div class="transactions-section">
+        <h2>Recent Transactions</h2>
+        <div class="transactions">
+          {data.transactions.slice(0, 10).map(transaction => (
+            <div class="transaction">
+              <div class="transaction-info">
+                <span class="description">{transaction.description}</span>
+                <span class="category">{transaction.category}</span>
+              </div>
+              <span class={`amount ${transaction.type}`}>
+                {transaction.type === 'income' ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Category Breakdown */}
+      <div class="categories-section">
+        <h2>Expense Categories</h2>
+        <div class="categories">
+          {Object.entries(categoryTotals).map(([category, total]) => (
+            <div class="category">
+              <span>{category}</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
