@@ -5,6 +5,10 @@ const RULES_KEY = 'category_rules';
 
 export const UNCATEGORIZED = 'Uncategorized';
 
+// Money moving between your own accounts (e.g. paying a credit card from
+// checking). Excluded from income/expense totals so it isn't double-counted.
+export const TRANSFER = 'Transfer';
+
 function load<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -18,15 +22,37 @@ function save(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-// Strips common bank-statement prefixes, then returns the first word-like
-// token as a starting-point keyword. The user confirms/edits it before it's
-// saved as a rule, so this only needs to be a reasonable guess.
+// Payment-processor and card-network prefixes that precede the merchant name,
+// e.g. "SQ *STARBUCKS" or "DEBIT CARD PURCHASE WHOLE FOODS". Each must be
+// followed by whitespace or '*' so merchant names like "POSTMATES" survive.
+const STATEMENT_PREFIX = /^(?:SQ|TST|POS|ACH|DEBIT|CREDIT|CARD|PURCHASE|CHECKCARD|RECURRING)(?:\s*\*\s*|\s+)/;
+
+// A starting-point keyword for a merchant: up to two leading alphabetic words
+// after stripping statement prefixes, stopping at store numbers and ids. The
+// user confirms/edits it before it's saved, so it only needs to be a good guess,
+// but it is always a substring of the description so the rule matches the
+// transaction it was created from.
 export function guessKeyword(description: string): string {
-  const cleaned = description
-    .replace(/^(SQ|POS|ACH|DEBIT|CREDIT|PURCHASE|PMT|PAYMENT)\s*\*?\s*/i, '')
-    .trim();
-  const match = cleaned.match(/[A-Za-z][A-Za-z'&-]{2,}/);
-  return (match?.[0] || cleaned.split(/\s+/)[0] || description).toUpperCase();
+  const upper = description.toUpperCase().trim();
+  let cleaned = upper;
+  for (let previous = ''; previous !== cleaned; ) {
+    previous = cleaned;
+    cleaned = cleaned.replace(STATEMENT_PREFIX, '');
+  }
+
+  const tokens = cleaned.split(/[\s*]+/).filter(Boolean);
+  const words: string[] = [];
+  for (const token of tokens) {
+    if (!/^[A-Z][A-Z.&'-]*$/.test(token) || words.length === 2) break;
+    words.push(token);
+  }
+
+  const candidates = [words.join(' '), words[0], tokens[0]].filter(Boolean) as string[];
+  return candidates.find((c) => upper.includes(c)) ?? upper;
+}
+
+export function isInCurrentMonth(date: Date, now = new Date()): boolean {
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
 export function periodStart(period: 'monthly' | 'weekly', now = new Date()): Date {
@@ -60,8 +86,10 @@ export class BudgetService {
     return this.budgets;
   }
 
+  // Categories a transaction can be assigned to: every budget's category,
+  // plus the built-in Transfer category.
   getCategories(): string[] {
-    return [...new Set(this.budgets.map((b) => b.category))];
+    return [...new Set([...this.budgets.map((b) => b.category), TRANSFER])];
   }
 
   addBudget(input: Omit<BudgetConfig, 'id'>): BudgetConfig {

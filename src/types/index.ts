@@ -1,7 +1,6 @@
 export interface Account {
   id: string;
   name: string;
-  type: 'checking' | 'savings' | 'credit' | 'investment';
   balance: number;
   institution: string;
 }
@@ -14,6 +13,7 @@ export interface Transaction {
   amount: number;
   category: string;
   type: 'income' | 'expense';
+  pending: boolean;
 }
 
 export interface BudgetConfig {
@@ -44,4 +44,8 @@ export interface FinancialData {
   accounts: Account[];
   transactions: Transaction[];
   budgets: Budget[];
+  rules: CategoryRule[];
+  categories: string[];
+  warnings: string[];
+  fetchedAt: Date | null;
 }
