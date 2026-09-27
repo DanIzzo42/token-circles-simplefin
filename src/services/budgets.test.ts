@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BudgetService,
   computeBudgetProgress,
@@ -121,6 +121,31 @@ describe('BudgetService rules', () => {
     const output = service.categorizeAll(input);
     expect(output.map((t) => t.category)).toEqual(['Dining', UNCATEGORIZED]);
     expect(input[0].category).toBe(UNCATEGORIZED);
+  });
+});
+
+describe('BudgetService on a non-secure origin (another device on the home network over http)', () => {
+  // Browsers only expose crypto.randomUUID in secure contexts (HTTPS or localhost).
+  beforeEach(() => {
+    const real = globalThis.crypto;
+    vi.stubGlobal('crypto', { getRandomValues: real.getRandomValues.bind(real) });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('can still add budgets and rules, with unique ids', () => {
+    const service = new BudgetService();
+    service.addBudget({ name: 'Food', category: 'Groceries', amount: 400, period: 'monthly' });
+    service.addBudget({ name: 'Fun', category: 'Entertainment', amount: 100, period: 'monthly' });
+    service.addRule('STARBUCKS', 'Dining');
+    service.addRule('NETFLIX', 'Entertainment');
+
+    const ids = [...service.getBudgets(), ...service.getRules()].map((item) => item.id);
+    expect(ids).toHaveLength(4);
+    expect(new Set(ids).size).toBe(4);
+    expect(ids.every((id) => typeof id === 'string' && id.length >= 16)).toBe(true);
   });
 });
 

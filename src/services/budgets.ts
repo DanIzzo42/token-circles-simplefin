@@ -22,6 +22,13 @@ function save(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+// crypto.randomUUID only exists in secure contexts (HTTPS or localhost), so it's
+// missing when another device on the home network opens the app over plain http.
+function newId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Payment-processor and card-network prefixes that precede the merchant name,
 // e.g. "SQ *STARBUCKS" or "DEBIT CARD PURCHASE WHOLE FOODS". Each must be
 // followed by whitespace or '*' so merchant names like "POSTMATES" survive.
@@ -93,7 +100,7 @@ export class BudgetService {
   }
 
   addBudget(input: Omit<BudgetConfig, 'id'>): BudgetConfig {
-    const budget: BudgetConfig = { ...input, id: crypto.randomUUID() };
+    const budget: BudgetConfig = { ...input, id: newId() };
     this.budgets = [...this.budgets, budget];
     save(BUDGETS_KEY, this.budgets);
     return budget;
@@ -119,7 +126,7 @@ export class BudgetService {
       existing.category = category;
       this.rules = [...this.rules];
     } else {
-      this.rules = [...this.rules, { id: crypto.randomUUID(), keyword: normalized, category }];
+      this.rules = [...this.rules, { id: newId(), keyword: normalized, category }];
     }
     save(RULES_KEY, this.rules);
   }
