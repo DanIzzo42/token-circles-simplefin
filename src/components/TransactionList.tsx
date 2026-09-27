@@ -2,6 +2,7 @@ import { createMemo, createSignal, Component, For, Show } from 'solid-js';
 import { Transaction } from '../types';
 import { UNCATEGORIZED } from '../services/budgets';
 import { CategorizeTransaction } from './CategorizeTransaction';
+import { money } from '../format';
 
 const PAGE_SIZE = 20;
 
@@ -25,27 +26,23 @@ const TransactionRow: Component<{ transaction: Transaction; categories: string[]
             <Show when={props.transaction.pending}>
               <span class="badge">Pending</span>
             </Show>
-            <Show
-              when={props.transaction.type === 'expense'}
-              fallback={
-                <Show when={props.transaction.category !== UNCATEGORIZED}>
-                  <span class="category">{props.transaction.category}</span>
-                </Show>
-              }
-            >
+            {/* Uncategorized income isn't flagged (it doesn't count against a
+                budget), but can still be categorized, e.g. as a Transfer. */}
+            <Show when={props.transaction.type === 'expense' || props.transaction.category !== UNCATEGORIZED}>
               <span class={`category ${props.transaction.category === UNCATEGORIZED ? 'uncategorized' : ''}`}>
                 {props.transaction.category}
               </span>
-              <Show when={props.transaction.category !== UNCATEGORIZED && !editing()}>
-                <button class="link-button" onClick={() => setEditing(true)}>
-                  Change
-                </button>
-              </Show>
+            </Show>
+            <Show when={!showForm()}>
+              <button class="link-button" onClick={() => setEditing(true)}>
+                {props.transaction.category === UNCATEGORIZED ? 'Categorize' : 'Change'}
+              </button>
             </Show>
           </span>
         </div>
         <span class={`amount ${props.transaction.type}`}>
-          {props.transaction.type === 'income' ? '+' : '-'}${Math.abs(props.transaction.amount).toFixed(2)}
+          {props.transaction.type === 'income' ? '+' : '−'}
+          {money(Math.abs(props.transaction.amount))}
         </span>
       </div>
       <Show when={showForm()}>

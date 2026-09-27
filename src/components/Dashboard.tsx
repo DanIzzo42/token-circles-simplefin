@@ -4,9 +4,7 @@ import { isInCurrentMonth, TRANSFER } from '../services/budgets';
 import { BudgetManager } from './BudgetManager';
 import { RulesManager } from './RulesManager';
 import { TransactionList } from './TransactionList';
-
-const money = (value: number) =>
-  value.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+import { money } from '../format';
 
 export const Dashboard: Component<{ data: FinancialData; onChange: () => void }> = (props) => {
   const totalBalance = () => props.data.accounts.reduce((sum, account) => sum + account.balance, 0);
