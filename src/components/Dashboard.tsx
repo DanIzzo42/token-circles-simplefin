@@ -1,92 +1,95 @@
-import { createSignal, Component } from 'solid-js';
+import { createMemo, Component, For, Show } from 'solid-js';
 import { FinancialData } from '../types';
+import { isInCurrentMonth, TRANSFER } from '../services/budgets';
+import { BudgetManager } from './BudgetManager';
+import { RulesManager } from './RulesManager';
+import { TransactionList } from './TransactionList';
+import { money } from '../format';
 
-export const Dashboard: Component<{ data: FinancialData }> = (props) => {
-  const { data } = props;
+export const Dashboard: Component<{ data: FinancialData; onChange: () => void }> = (props) => {
+  const totalBalance = () => props.data.accounts.reduce((sum, account) => sum + account.balance, 0);
 
-  // Calculate totals
-  const totalBalance = data.accounts.reduce((sum, account) => sum + account.balance, 0);
-  const monthlyIncome = data.transactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-  const monthlyExpenses = data.transactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const thisMonth = createMemo(() =>
+    props.data.transactions.filter((t) => isInCurrentMonth(t.date) && t.category !== TRANSFER)
+  );
+  const monthlyIncome = () =>
+    thisMonth()
+      .filter((t) => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+  const monthlySpending = () =>
+    thisMonth()
+      .filter((t) => t.type === 'expense')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-  // Category breakdown
-  const categoryTotals = data.transactions.reduce((acc, transaction) => {
-    if (transaction.type === 'expense') {
-      acc[transaction.category] = (acc[transaction.category] || 0) + Math.abs(transaction.amount);
+  const spendingByCategory = createMemo(() => {
+    const totals = new Map<string, number>();
+    for (const t of thisMonth()) {
+      if (t.type === 'expense') totals.set(t.category, (totals.get(t.category) ?? 0) + Math.abs(t.amount));
     }
-    return acc;
-  }, {} as Record<string, number>);
+    return [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  });
+
+  const monthName = () => new Date().toLocaleDateString(undefined, { month: 'long' });
 
   return (
     <div class="dashboard">
-      <h1>Financial Dashboard</h1>
-
-      {/* Summary Cards */}
-      <div class="summary-cards">
+      <section class="summary-cards">
         <div class="card">
-          <h3>Total Balance</h3>
-          <p class="balance">${totalBalance.toFixed(2)}</p>
+          <h3>Total balance</h3>
+          <p class="stat">{money(totalBalance())}</p>
         </div>
-
         <div class="card">
-          <h3>Monthly Income</h3>
-          <p class="income">+${monthlyIncome.toFixed(2)}</p>
+          <h3>{monthName()} income</h3>
+          <p class="stat income">{money(monthlyIncome())}</p>
         </div>
-
         <div class="card">
-          <h3>Monthly Expenses</h3>
-          <p class="expense">-${monthlyExpenses.toFixed(2)}</p>
+          <h3>{monthName()} spending</h3>
+          <p class="stat expense">{money(monthlySpending())}</p>
         </div>
-      </div>
+      </section>
 
-      {/* Accounts */}
-      <div class="accounts-section">
+      <section class="accounts-section">
         <h2>Accounts</h2>
         <div class="accounts">
-          {data.accounts.map(account => (
-            <div class="account-card">
-              <h3>{account.name}</h3>
-              <p class="institution">{account.institution}</p>
-              <p class="balance">${account.balance.toFixed(2)}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Transactions */}
-      <div class="transactions-section">
-        <h2>Recent Transactions</h2>
-        <div class="transactions">
-          {data.transactions.slice(0, 10).map(transaction => (
-            <div class="transaction">
-              <div class="transaction-info">
-                <span class="description">{transaction.description}</span>
-                <span class="category">{transaction.category}</span>
+          <For each={props.data.accounts} fallback={<p class="empty">No accounts returned by SimpleFIN.</p>}>
+            {(account) => (
+              <div class="account-card">
+                <div>
+                  <h3>{account.name}</h3>
+                  <p class="institution">{account.institution}</p>
+                </div>
+                <p class={`account-balance ${account.balance < 0 ? 'negative' : ''}`}>{money(account.balance)}</p>
               </div>
-              <span class={`amount ${transaction.type}`}>
-                {transaction.type === 'income' ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
-              </span>
-            </div>
-          ))}
+            )}
+          </For>
         </div>
-      </div>
+      </section>
 
-      {/* Category Breakdown */}
-      <div class="categories-section">
-        <h2>Expense Categories</h2>
-        <div class="categories">
-          {Object.entries(categoryTotals).map(([category, total]) => (
-            <div class="category">
-              <span>{category}</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <BudgetManager budgets={props.data.budgets} onChange={props.onChange} />
+
+      <TransactionList
+        transactions={props.data.transactions}
+        categories={props.data.categories}
+        onChange={props.onChange}
+      />
+
+      <section class="categories-section">
+        <h2>{monthName()} spending by category</h2>
+        <Show when={spendingByCategory().length > 0} fallback={<p class="empty">No spending yet this month.</p>}>
+          <div class="categories">
+            <For each={spendingByCategory()}>
+              {([category, total]) => (
+                <div class="category-row">
+                  <span>{category}</span>
+                  <span>{money(total)}</span>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+      </section>
+
+      <RulesManager rules={props.data.rules} onChange={props.onChange} />
     </div>
   );
 };

@@ -9,8 +9,8 @@ fi
 
 echo "Installing dependencies for cloud session..."
 
-# Navigate to project directory
-cd /workspace
+# Navigate to project directory (this script lives in <repo>/scripts)
+cd "$(dirname "$0")/.."
 
 # Install Node.js dependencies
 npm install

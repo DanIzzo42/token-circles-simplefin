@@ -1,7 +1,6 @@
 export interface Account {
   id: string;
   name: string;
-  type: 'checking' | 'savings' | 'credit' | 'investment';
   balance: number;
   institution: string;
 }
@@ -14,15 +13,25 @@ export interface Transaction {
   amount: number;
   category: string;
   type: 'income' | 'expense';
+  pending: boolean;
 }
 
-export interface Budget {
+export interface BudgetConfig {
   id: string;
   name: string;
   category: string;
   amount: number;
-  spent: number;
   period: 'monthly' | 'weekly';
+}
+
+export interface Budget extends BudgetConfig {
+  spent: number;
+}
+
+export interface CategoryRule {
+  id: string;
+  keyword: string;
+  category: string;
 }
 
 export interface SimpleFinCredentials {
@@ -35,4 +44,8 @@ export interface FinancialData {
   accounts: Account[];
   transactions: Transaction[];
   budgets: Budget[];
+  rules: CategoryRule[];
+  categories: string[];
+  warnings: string[];
+  fetchedAt: Date | null;
 }
