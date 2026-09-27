@@ -23,8 +23,24 @@ interface SimpleFinAccountSet {
   accounts: SimpleFinAccount[];
 }
 
+const STORAGE_KEY = 'simplefin_credentials';
+
 export class SimpleFinService {
-  private credentials: SimpleFinCredentials | null = null;
+  private credentials: SimpleFinCredentials | null = this.loadCredentials();
+
+  private loadCredentials(): SimpleFinCredentials | null {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  disconnect(): void {
+    this.credentials = null;
+    localStorage.removeItem(STORAGE_KEY);
+  }
 
   async connect(setupToken: string): Promise<void> {
     try {
@@ -47,6 +63,7 @@ export class SimpleFinService {
         accessToken: `${decodeURIComponent(parsed.username)}:${decodeURIComponent(parsed.password)}`,
         baseUrl: `${parsed.protocol}//${parsed.host}${parsed.pathname}`
       };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.credentials));
     } catch (error) {
       console.error('SimpleFin connection error:', error);
       throw error;
@@ -64,6 +81,11 @@ export class SimpleFinService {
           Authorization: `Basic ${btoa(this.credentials.accessToken)}`
         }
       });
+
+      if (response.status === 401 || response.status === 403) {
+        this.disconnect();
+        throw new Error('SimpleFin connection was revoked. Please reconnect.');
+      }
 
       if (!response.ok) {
         throw new Error('Failed to fetch financial data');
