@@ -1,24 +1,51 @@
 import { SimpleFinCredentials, FinancialData } from '../types';
 
+interface SimpleFinTransaction {
+  id: string;
+  posted?: number;
+  transacted_at?: number;
+  amount: string;
+  description: string;
+  extra?: { category?: string };
+}
+
+interface SimpleFinAccount {
+  id: string;
+  name: string;
+  type?: string;
+  balance: string;
+  org?: { name?: string; domain?: string };
+  transactions?: SimpleFinTransaction[];
+}
+
+interface SimpleFinAccountSet {
+  errors?: string[];
+  accounts: SimpleFinAccount[];
+}
+
 export class SimpleFinService {
   private credentials: SimpleFinCredentials | null = null;
 
   async connect(setupToken: string): Promise<void> {
     try {
-      // Exchange setup token for access token
-      const response = await fetch(`https://bridge.simplefin.org/claim/${setupToken}`, {
-        method: 'POST'
-      });
+      // Setup tokens are base64-encoded claim URLs.
+      const claimUrl = atob(setupToken.trim());
+
+      const response = await fetch(claimUrl, { method: 'POST' });
 
       if (!response.ok) {
         throw new Error('Failed to connect to SimpleFin');
       }
 
-      const data = await response.json();
+      // The claim endpoint returns the plain-text Access URL, which embeds
+      // Basic Auth credentials, e.g. https://user:pass@bridge.simplefin.org/simplefin
+      const accessUrl = (await response.text()).trim();
+      const parsed = new URL(accessUrl);
+
       this.credentials = {
         setupToken,
-        accessToken: data.access_token,
-        baseUrl: data.base_url
+        accessToken: `${decodeURIComponent(parsed.username)}:${decodeURIComponent(parsed.password)}`,
+        baseUrl: `${parsed.protocol}//${parsed.host}${parsed.pathname}`
       };
     } catch (error) {
       console.error('SimpleFin connection error:', error);
@@ -34,7 +61,7 @@ export class SimpleFinService {
     try {
       const response = await fetch(`${this.credentials.baseUrl}/accounts`, {
         headers: {
-          'Authorization': `Basic ${btoa(`${this.credentials.accessToken}:`)}`
+          Authorization: `Basic ${btoa(this.credentials.accessToken)}`
         }
       });
 
@@ -42,26 +69,35 @@ export class SimpleFinService {
         throw new Error('Failed to fetch financial data');
       }
 
-      const data = await response.json();
+      const data: SimpleFinAccountSet = await response.json();
 
-      // Transform SimpleFin data to our format
-      const accounts = data.accounts.map((account: any) => ({
+      if (data.errors?.length) {
+        console.warn('SimpleFin reported errors:', data.errors);
+      }
+
+      const accounts = data.accounts.map((account) => ({
         id: account.id,
         name: account.name,
-        type: account.type.toLowerCase(),
-        balance: account.balance,
-        institution: account.institution
+        type: (account.type?.toLowerCase() || 'checking') as 'checking' | 'savings' | 'credit' | 'investment',
+        balance: parseFloat(account.balance),
+        institution: account.org?.name || account.org?.domain || 'Unknown'
       }));
 
-      const transactions = data.transactions?.map((transaction: any) => ({
-        id: transaction.id,
-        accountId: transaction.account_id,
-        date: new Date(transaction.date),
-        description: transaction.description,
-        amount: transaction.amount,
-        category: transaction.category || 'Uncategorized',
-        type: transaction.amount > 0 ? 'income' : 'expense'
-      })) || [];
+      const transactions = data.accounts.flatMap((account) =>
+        (account.transactions || []).map((transaction) => {
+          const amount = parseFloat(transaction.amount);
+          const postedSeconds = transaction.posted ?? transaction.transacted_at ?? 0;
+          return {
+            id: transaction.id,
+            accountId: account.id,
+            date: new Date(postedSeconds * 1000),
+            description: transaction.description,
+            amount,
+            category: transaction.extra?.category || 'Uncategorized',
+            type: (amount >= 0 ? 'income' : 'expense') as 'income' | 'expense'
+          };
+        })
+      );
 
       return {
         accounts,
@@ -78,3 +114,5 @@ export class SimpleFinService {
     return this.credentials !== null;
   }
 }
+
+export const simpleFinService = new SimpleFinService();

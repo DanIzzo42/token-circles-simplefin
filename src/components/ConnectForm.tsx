@@ -1,10 +1,7 @@
 import { createSignal, Component } from 'solid-js';
-import { SimpleFinService } from '../services/simplefin';
-import { SimpleFinCredentials } from '../types';
+import { simpleFinService } from '../services/simplefin';
 
-const simpleFinService = new SimpleFinService();
-
-export const ConnectForm: Component = () => {
+export const ConnectForm: Component<{ onConnected: () => void }> = (props) => {
   const [setupToken, setSetupToken] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal('');
@@ -16,8 +13,7 @@ export const ConnectForm: Component = () => {
 
     try {
       await simpleFinService.connect(setupToken());
-      // Navigate to dashboard or show success
-      console.log('Connected successfully!');
+      props.onConnected();
     } catch (err) {
       setError('Failed to connect. Please check your setup token.');
       console.error(err);

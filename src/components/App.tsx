@@ -1,10 +1,8 @@
 import { createSignal, Component } from 'solid-js';
 import { ConnectForm } from './ConnectForm';
 import { Dashboard } from './Dashboard';
-import { SimpleFinService } from '../services/simplefin';
+import { simpleFinService } from '../services/simplefin';
 import { FinancialData } from '../types';
-
-const simpleFinService = new SimpleFinService();
 
 export const App: Component = () => {
   const [isConnected, setIsConnected] = createSignal(false);
@@ -25,6 +23,11 @@ export const App: Component = () => {
     }
   };
 
+  const handleConnected = () => {
+    setIsConnected(true);
+    handleRefreshData();
+  };
+
   return (
     <div class="app">
       <header>
@@ -40,7 +43,7 @@ export const App: Component = () => {
 
       <main>
         {!isConnected() ? (
-          <ConnectForm onConnected={() => setIsConnected(true)} />
+          <ConnectForm onConnected={handleConnected} />
         ) : (
           <Dashboard data={financialData() || { accounts: [], transactions: [], budgets: [] }} />
         )}
